@@ -27,7 +27,7 @@ function M.delete_buffer()
   end
 
   if buf.buf ~= active.buf then
-    buffers.remove_buffer({ path = buf.path })
+    buffers.remove_buffer({ bufnr = buf.buf })
     config.get_handlers().on_delete_buffer(buf.buf)
     return
   end
@@ -41,7 +41,7 @@ function M.delete_buffer()
   -- can not close buffer if it is active buffer
   vim.api.nvim_command("wincmd l" .. "|" .. "buffer " .. next_buf.buf .. "|" .. "wincmd h")
 
-  buffers.remove_buffer({ path = buf.path })
+  buffers.remove_buffer({ bufnr = buf.buf })
   config.get_handlers().on_delete_buffer(buf.buf)
 end
 
@@ -64,13 +64,16 @@ function M.rename_buffer()
     if not new_name then
       return
     end
-    buffers.rename_buffer({ index = pos[1], new_name = new_name })
+    buffers.rename_buffer({ bufnr = buf.buf, new_name = new_name })
   end)
 end
 
 function M.reset_custom_display_name()
   local pos = vim.api.nvim_win_get_cursor(0)
-  buffers.reset_custom_display_name({ index = pos[1] })
+  local buf = buffers.get_buffer_by_index(pos[1])
+  if buf then
+    buffers.reset_custom_display_name({ bufnr = buf.buf })
+  end
 end
 
 function M.reset_custom_display_names()

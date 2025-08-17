@@ -50,6 +50,9 @@ local function _create_window()
     vim.api.nvim_win_set_option(win, option, value)
   end
 
+  -- Mark this window as a vuffers window
+  vim.w[win].vuffers_window = true
+
   return win
 end
 
@@ -199,6 +202,29 @@ function M.auto_resize()
   end)
 
   M.resize(max_text_length + LENGTH_BEFORE_BUFFER_NAME + EDIT_ICON_LENGTH)
+end
+
+---Restore a vuffers window from session
+---@param winnr number The window number to restore
+---@param bufnr number The buffer number associated with the window
+function M.restore_from_session(winnr, bufnr)
+  logger.debug("Restoring vuffers window from session", { winnr = winnr, bufnr = bufnr })
+  _set_view({ winnr = winnr, bufnr = bufnr })
+  
+  -- Ensure the window is properly marked
+  vim.w[winnr].vuffers_window = true
+  
+  -- Apply window options
+  for option, value in pairs(window_options) do
+    vim.api.nvim_win_set_option(winnr, option, value)
+  end
+  
+  -- Apply buffer options
+  for option, value in pairs(buffer_options) do
+    vim.bo[bufnr][option] = value
+  end
+  
+  event_bus.publish_vuffers_window_opened({ buffer_number = bufnr })
 end
 
 return M

@@ -21,14 +21,14 @@ end
 
 ---@param args {index: number, new_name: string}
 M.rename_buffer = function(args)
-  bufs.rename_buffer(args)
+  bufs.rename_buffer_by_index(args)
   local payload = event_payload.get_buffer_list_changed_event_payload()
   event_bus.publish_buffer_list_changed(payload)
 end
 
 ---@param args {index: number}
 M.reset_custom_display_name = function(args)
-  if bufs.reset_custom_display_name(args) then
+  if bufs.reset_custom_display_name_by_index(args) then
     local payload = event_payload.get_buffer_list_changed_event_payload()
     event_bus.publish_buffer_list_changed(payload)
   end
@@ -57,8 +57,17 @@ M.get_active_buffer = function()
   return bufs.get_buffer_by_path(path)
 end
 
+---@param args {bufnr: Bufnr, new_path: string}
+M.update_buffer_path = function(args)
+  if bufs.update_buffer_path(args) then
+    local payload = event_payload.get_buffer_list_changed_event_payload()
+    event_bus.publish_buffer_list_changed(payload)
+  end
+end
+
 M.get_buffer_by_index = bufs.get_buffer_by_index
 M.get_buffer_by_path = bufs.get_buffer_by_path
+M.get_buffer_by_bufnr = bufs.get_buffer_by_bufnr
 M.get_num_of_buffers = bufs.get_num_of_buffers
 
 M.increment_additional_folder_depth = function()

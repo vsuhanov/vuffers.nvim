@@ -55,6 +55,7 @@ local _global_additional_folder_depth = 0
 -- `buf_or_filename` can be buffer number of filename
 local function _is_in_buf_list(buf_or_filename)
   return list.find(_buf_list, function(buffer)
+    logger.debug("checking whether " .. buffer.buf .. " or " .. buffer.path .. " match " .. buf_or_filename)
     return buffer.buf == buf_or_filename or buffer.path == buf_or_filename
   end) ~= nil
 end
@@ -89,16 +90,73 @@ function M.add_buffer(buffer)
   return true
 end
 
----@param args {index: number, new_name: string}
+---@param args {bufnr: Bufnr, new_name: string}
 function M.rename_buffer(args)
+  local buffer, index = M.get_buffer_by_bufnr(args.bufnr)
+
+  if not buffer or not index then
+    logger.warn("rename_buffer: buffer not found", args)
+    return
+  end
+
+  _buf_list[index]._custom_name = args.new_name
+  local buffers = utils.get_formatted_buffers(_buf_list)
+  buffers = utils.sort_buffers(buffers, config.get_sort())
+  _buf_list = buffers
+
+  return true
+end
+
+---@param args {bufnr: Bufnr, new_path: string}
+function M.update_buffer_path(args)
+  local buffer, index = M.get_buffer_by_bufnr(args.bufnr)
+
+  if not buffer or not index then
+    logger.warn("update_buffer_path: buffer not found", args)
+    return
+  end
+
+  -- Update the actual path and name when file is renamed (not custom name)
+  _buf_list[index].path = args.new_path
+  _buf_list[index].name = args.new_path
+
+  -- Reformat to update derived fields like _unique_name, ext, etc.
+  local buffers = utils.get_formatted_buffers(_buf_list)
+  buffers = utils.sort_buffers(buffers, config.get_sort())
+  _buf_list = buffers
+
+  logger.debug("update_buffer_path: buffer path updated", { bufnr = args.bufnr, new_path = args.new_path })
+  return true
+end
+
+---@param args {index: number, new_name: string}
+---@deprecated Use rename_buffer with bufnr instead
+function M.rename_buffer_by_index(args)
   _buf_list[args.index]._custom_name = args.new_name
   local buffers = utils.get_formatted_buffers(_buf_list)
   buffers = utils.sort_buffers(buffers, config.get_sort())
   _buf_list = buffers
 end
 
----@param args {index: number}
+---@param args {bufnr: Bufnr}
 function M.reset_custom_display_name(args)
+  local target, index = M.get_buffer_by_bufnr(args.bufnr)
+
+  if not target or not target._custom_name or not index then
+    return
+  end
+
+  target._custom_name = nil
+
+  local updated = utils.get_formatted_buffers({ target })
+  _buf_list[index] = updated[1]
+
+  return true
+end
+
+---@param args {index: number}
+---@deprecated Use reset_custom_display_name with bufnr instead
+function M.reset_custom_display_name_by_index(args)
   local target = M.get_buffer_by_index(args.index)
 
   if not target or not target._custom_name then
@@ -138,33 +196,45 @@ function M.reset_custom_display_names()
   return true
 end
 
----@param args {path?: string}
+---@param args {path?: string, bufnr?: Bufnr}
 function M.remove_buffer(args)
-  if not args.path then
+  local target_index
+  local buffer_info
+
+  if args.bufnr then
+    local buffer
+    buffer, target_index = M.get_buffer_by_bufnr(args.bufnr)
+    if buffer then
+      buffer_info = { path = buffer.path, bufnr = buffer.buf }
+    end
+  elseif args.path then
+    local buffer
+    buffer, target_index = M.get_buffer_by_path(args.path)
+    if buffer then
+      buffer_info = { path = buffer.path, bufnr = buffer.buf }
+    end
+  else
+    logger.warn("remove_buffer: no path or bufnr provided", args)
     return
   end
 
-  local target_index = list.find_index(_buf_list, function(buf)
-    return buf.path == args.path
-  end)
-
-  if not target_index then
+  if not target_index or not buffer_info then
     -- TODO: debounce. buffer is deleted by UI action, first the buffer list is updated, then actual buffer is deleted by :bufwipeout, which triggers this function again
     logger.debug("remove_buffer: buffer not found", args)
     return
   end
 
-  logger.debug("remove_buffer: buffer will be removed", args)
+  logger.debug("remove_buffer: buffer will be removed", buffer_info)
 
   local active_buf_path = active().get_active_buf_path()
 
-  if args.path ~= active_buf_path then
+  if buffer_info.path ~= active_buf_path then
     table.remove(_buf_list, target_index)
     local buffers = utils.get_formatted_buffers(_buf_list)
     buffers = utils.sort_buffers(buffers, config.get_sort())
     _buf_list = buffers
 
-    logger.debug("remove_buffer: buffer is removed", args)
+    logger.debug("remove_buffer: buffer is removed", buffer_info)
 
     return true
   end
@@ -175,12 +245,12 @@ function M.remove_buffer(args)
   if next_active_buffer then
     active().set_active_buf(next_active_buffer)
   else
-    logger.warn("remove_buffer: can not delete the last buffer", args)
+    logger.warn("remove_buffer: can not delete the last buffer", buffer_info)
     return
   end
 
   table.remove(_buf_list, target_index)
-  logger.debug("remove_buffer: buffer is removed", args)
+  logger.debug("remove_buffer: buffer is removed", buffer_info)
 
   return true
 end
@@ -337,6 +407,20 @@ end
 function M.get_buffer_by_path(path)
   local index = list.find_index(_buf_list, function(buf)
     return buf.path == path
+  end)
+
+  if not index then
+    return
+  end
+
+  return _buf_list[index], index
+end
+
+---@param bufnr Bufnr
+---@return Buffer | nil buffer, integer | nil index
+function M.get_buffer_by_bufnr(bufnr)
+  local index = list.find_index(_buf_list, function(buf)
+    return buf.buf == bufnr
   end)
 
   if not index then

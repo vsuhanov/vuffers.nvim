@@ -214,11 +214,13 @@ function M.is_valid_buf(buffer)
     return false
   end
 
-  if vim.fn.buflisted(buffer.buf) == 0 then
+  local filename = buffer.file or buffer.name
+  local is_terminal = filename and filename:match("^term://")
+  
+  if vim.fn.buflisted(buffer.buf) == 0 and not is_terminal then
     return false
   end
 
-  local filename = buffer.file or buffer.name
   if filename == "" or filename == "/" or filename == " " then
     return false
   end

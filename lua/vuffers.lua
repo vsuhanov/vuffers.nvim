@@ -212,10 +212,12 @@ end
 -- MISC                         --
 ------------------------------------
 
+--- @deprecated This function is now handled automatically by VimEnter autocmd
+--- Session restoration is now automatic - no need to call this manually
 function M.on_session_loaded()
-  config.load_saved_config()
-  bufs.restore_buffers()
-  bufs.set_is_restored_from_session(true)
+  -- This function is deprecated and no longer needed
+  -- Session restoration now happens automatically via VimEnter autocmd
+  logger.warn("on_session_loaded is deprecated - session restoration now happens automatically")
 end
 
 function M.debug_buffers()

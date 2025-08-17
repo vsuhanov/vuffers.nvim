@@ -4,11 +4,7 @@ local config = require("vuffers.config")
 ---@field trace fun(message: string, event?: table): nil
 ---@field debug fun(message: string, event?: table): nil
 ---@field info fun(message: string, event?: table): nil
----@field warn fun(message: string, event?: table): nil
----@field error fun(message: string, event?: table): nil
-
----@type Logger | nil
-local logger
+---@field warn fun(message: string, event?: table): nil @field error fun(message: string, event?: table): nil @type Logger | nil local logger
 
 local M = {}
 
@@ -34,6 +30,7 @@ function M.setup()
                 { level = log.formatters.FormatColorizer.color_level() }
               ),
               sink = log.sinks.Console(),
+              -- sink = log.sinks.File("/tmp/vuffers-log.log"),
             },
           },
         },
